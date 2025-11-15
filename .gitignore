@@ -1,0 +1,79 @@
+# Credentials et données sensibles
+*.key
+*.pem
+*.ppk
+*.env
+.env.*
+secrets/
+credentials/
+
+# Clés API
+*api_key*
+*token*
+*secret*
+
+# Configuration avec credentials
+config.json
+*config*.json
+*.config.json
+
+# Logs
+*.log
+logs/
+*.log.*
+
+# Bases de données locales
+*.db
+*.sqlite
+*.sql.gz
+
+# Fichiers temporaires
+*.tmp
+*.temp
+tmp/
+temp/
+
+# Backups
+*.backup
+*.bak
+backups/
+
+# Archives
+*.tar.gz
+*.zip
+*.rar
+
+# OS
+.DS_Store
+Thumbs.db
+*~
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+*.egg-info/
+
+# Node
+node_modules/
+package-lock.json
+yarn.lock
+
+# Docker
+docker-compose.override.yml
+.dockerignore
+
+# n8n
+.n8n/
+n8n-local.db
+*.n8ndb
