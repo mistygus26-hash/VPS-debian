@@ -4,11 +4,140 @@
 
 Le VPS utilise le protocole MCP (Model Context Protocol) pour permettre à Qwen 2.5 Coder 3B d'interagir avec le système de manière sécurisée et structurée.
 
-**Mode d'utilisation**: MCP exclusif pour Qwen (pas de conflit avec Mistral)
+**Modes d'utilisation**:
+- MCP local pour Qwen sur le VPS (pas de conflit avec Mistral)
+- MCP distant pour accès depuis Windows 10 via Claude Desktop
 
 ---
 
-## 🔧 Serveurs MCP Configurés
+## 🖥️ MCP pour Accès Distant au VPS (Windows 10)
+
+### VPS MCP Server v3
+
+**Fonction**: Permet à Claude Desktop (Windows 10) de gérer le VPS Debian à distance via SSH
+
+#### Configuration Claude Desktop
+**Fichier**: `C:\Users\Chris\AppData\Roaming\Claude\claude_desktop_config.json`
+
+```json
+{
+  "mcpServers": {
+    "vps-debian": {
+      "command": "python",
+      "args": ["C:\\Users\\Chris\\mcp-servers\\vps-mcp-server-v3.py"]
+    }
+  }
+}
+```
+
+#### Caractéristiques Techniques
+
+**Version**: v3 (novembre 2025)  
+**SDK**: MCP 1.19.0 officiel (mcp.server)  
+**Protocole**: stdio  
+**Connexion**: SSH avec authentification par clé Ed25519  
+
+**Migration depuis v1 et v2**:
+- ❌ v1 (`vps-mcp-server.py`) - Obsolète
+- ❌ v2 (`vps-mcp-server-v2.py` avec FastMCP) - Incompatible stdio Claude Desktop
+- ✅ v3 (`vps-mcp-server-v3.py`) - Compatible SDK MCP officiel
+
+#### Outils Disponibles
+
+| Outil | Description | Usage |
+|-------|-------------|-------|
+| `execute_command` | Exécuter commandes SSH sur le VPS | Administration système, diagnostics |
+| `list_docker_containers` | Lister conteneurs Docker actifs | Monitoring infrastructure |
+| `check_docker_logs` | Consulter logs d'un conteneur | Debugging workflows n8n |
+| `restart_docker_container` | Redémarrer un conteneur | Résolution incidents |
+| `check_system_resources` | Ressources système (CPU, RAM, disque) | Monitoring performance |
+| `diagnose_vps` | Diagnostic complet VPS | Troubleshooting général |
+| `query_postgres` | Requêtes PostgreSQL directes | Consultation base n8n |
+
+#### Cas d'usage Principaux
+
+**Gestion quotidienne**:
+- Monitoring des services Docker (n8n, Ollama, PostgreSQL)
+- Consultation des logs en temps réel
+- Vérification des ressources système
+
+**Troubleshooting**:
+- Diagnostic complet en cas d'incident
+- Redémarrage sélectif de conteneurs
+- Analyse des logs d'erreurs
+
+**Administration workflows n8n**:
+- Vérification statut des workers
+- Consultation base PostgreSQL
+- Debugging des exécutions
+
+#### Sécurité
+
+**Authentification**:
+- ✅ Clé SSH Ed25519 (pas de mot de passe)
+- ✅ Connexion chiffrée SSH
+- ✅ Pas de credentials stockés dans le code MCP
+
+**Isolation**:
+- ✅ Commandes Docker en lecture seule (sauf restart)
+- ✅ Requêtes PostgreSQL en lecture seule
+- ⚠️ execute_command: accès root SSH (utilisé avec précaution)
+
+**Bonnes pratiques**:
+- Ne pas stocker le fichier de configuration dans un repo public
+- Vérifier régulièrement les logs d'accès SSH sur le VPS
+- Limiter l'usage de `execute_command` aux tâches nécessaires
+
+#### Configuration Système Requise
+
+**Windows 10**:
+- Python 3.11+
+- Package `mcp` via pip
+- Package `paramiko` pour SSH
+- Clé SSH Ed25519 configurée
+
+**VPS Debian**:
+- OpenSSH Server actif
+- Clé publique autorisée dans `~/.ssh/authorized_keys`
+- Docker accessible sans sudo (ou via sudo configuré)
+
+#### Troubleshooting
+
+**Problème**: MCP ne se charge pas dans Claude Desktop
+
+```bash
+# Vérifier Python disponible
+python --version
+
+# Vérifier packages installés
+pip list | grep mcp
+pip list | grep paramiko
+
+# Tester connexion SSH manuellement
+ssh -i ~/.ssh/id_ed25519 root@<VPS_IP>
+```
+
+**Problème**: Timeout lors de connexion SSH
+
+```python
+# Dans vps-mcp-server-v3.py, augmenter timeout
+timeout = 30  # au lieu de 10
+```
+
+**Problème**: Docker commands échouent
+
+```bash
+# Sur le VPS, vérifier que l'utilisateur SSH peut accéder à Docker
+docker ps
+# Si erreur, ajouter l'utilisateur au groupe docker
+sudo usermod -aG docker $USER
+```
+
+---
+
+## 🔧 Serveurs MCP Configurés sur le VPS (Qwen)
+
+> **Note**: Cette section documente les MCP utilisés par Qwen 2.5 Coder 3B directement sur le VPS, pas les MCP pour accès distant.
 
 ### 1. Memory MCP - Graphe de Connaissance
 
@@ -318,7 +447,7 @@ ls -la /opt/vps-inventory
   'args': ['-y', '@modelcontextprotocol/server-postgres']
 }
 ```
-**Pourquoi non utilisé**: Accès via n8n workflows suffit
+**Pourquoi non utilisé**: Accès via n8n workflows et VPS MCP Server v3 suffit
 
 ### Mistral Integration (futur)
 
@@ -328,7 +457,7 @@ ls -la /opt/vps-inventory
 - sequential-thinking (safe, pas de stockage)
 - n8n (safe, API REST)
 
-// Pas utilisés par Mistral (éviter conflits):
+// Pas utilisés par Mistral (éviter conflits)
 - memory (risque écriture simultanée)
 - filesystem (risque corruption fichiers)
 ```
@@ -353,15 +482,50 @@ ls -la /opt/vps-inventory
 4. **n8n MCP**: 
    - ✅ Pas de conflit, API gère concurrence
 
+5. **VPS MCP Server v3** (Windows 10):
+   - ✅ Pas de conflit avec MCP locaux sur le VPS
+   - ✅ Isolation complète via SSH
+   - ⚠️ Attention aux commandes destructives via execute_command
+
 ### Bonnes Pratiques
 
+**MCP Locaux (VPS)**:
 - ✅ Un seul LLM avec Memory MCP
 - ✅ Logs désactivés pour MCP (DISABLE_CONSOLE_OUTPUT=true)
 - ✅ Whitelist stricte filesystem
 - ✅ Services systemd avec auto-restart
 - ✅ Monitoring régulier des logs
 
+**MCP Distant (Windows 10)**:
+- ✅ Authentification SSH par clé uniquement
+- ✅ Pas de credentials dans le code
+- ✅ Limitation des commandes sensibles
+- ✅ Logs d'accès SSH sur le VPS
+- ✅ Fichier de configuration sécurisé
+
 ---
 
-**Dernière mise à jour**: 2025-11-15  
-**Configuration validée**: ✅ Qwen 2.5 Coder 3B with 4 MCP servers
+## 📝 Historique des Versions
+
+### VPS MCP Server
+
+| Version | Date | Statut | Notes |
+|---------|------|--------|-------|
+| v1 | Oct 2025 | ❌ Obsolète | Version initiale, non compatible SDK MCP moderne |
+| v2 (FastMCP) | Nov 2025 | ❌ Obsolète | Incompatible stdio Claude Desktop |
+| **v3** | Nov 2025 | ✅ **Actif** | SDK MCP 1.19.0 officiel, compatible Claude Desktop |
+
+### MCP Locaux (VPS)
+
+Tous les serveurs MCP utilisent les versions officielles via npx avec auto-update:
+- `@modelcontextprotocol/server-memory` - Latest
+- `@modelcontextprotocol/server-sequential-thinking` - Latest
+- `@modelcontextprotocol/server-filesystem` - Latest
+- `n8n-mcp` - Latest
+
+---
+
+**Dernière mise à jour**: 2025-11-16  
+**Configuration validée**: 
+- ✅ Qwen 2.5 Coder 3B with 4 MCP servers (VPS local)
+- ✅ Claude Desktop with VPS MCP Server v3 (Windows 10 remote)
